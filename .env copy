@@ -1,0 +1,9 @@
+# Demo development configuration only. Replace before using outside local setup.
+DATABASE_URL=postgresql+psycopg://socfusion:socfusion@localhost:5432/socfusion
+OTX_API_KEY=demo-otx-api-key
+MISP_URL=https://misp.example.local
+MISP_API_KEY=demo-misp-api-key
+RAW_STORAGE_PATH=./data/raw-intel
+ADMIN_AUTH_SECRET=change-me-demo-secret
+APP_ENV=development
+DEBUG=true
