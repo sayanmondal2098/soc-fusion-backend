@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from contextlib import AbstractContextManager
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -57,7 +57,7 @@ class IngestPersistenceService:
         status: str = "pending",
         record_count: int = 0,
         raw_storage_uri: str | None = None,
-        request_metadata: Mapping[str, Any] | None = None,
+        request_metadata: Mapping[str, object] | None = None,
     ) -> RawIngestBatch:
         job_context = build_job_log_context(
             source_name,
@@ -96,17 +96,22 @@ class IngestPersistenceService:
         status: str | None = None,
         record_count: int | None = None,
         record_count_delta: int | None = None,
-        request_metadata: Mapping[str, Any] | None = None,
+        request_metadata: Mapping[str, object] | None = None,
         raw_storage_uri: str | None | object = _UNSET,
     ) -> RawIngestBatch:
+        repository_kwargs: dict[str, object] = {
+            "status": status,
+            "record_count": record_count,
+            "record_count_delta": record_count_delta,
+            "request_metadata": request_metadata,
+        }
+        if raw_storage_uri is not _UNSET:
+            repository_kwargs["raw_storage_uri"] = raw_storage_uri
+
         with self._bind_batch_context(batch):
             updated_batch = self.batch_repository.update_job_counts_and_status(
                 batch,
-                status=status,
-                record_count=record_count,
-                record_count_delta=record_count_delta,
-                request_metadata=request_metadata,
-                raw_storage_uri=raw_storage_uri,
+                **repository_kwargs,
             )
             log_scheduler_event(
                 self.logger,
@@ -125,10 +130,10 @@ class IngestPersistenceService:
         batch: RawIngestBatch,
         *,
         source_record_id: str,
-        raw_payload: Mapping[str, Any],
+        raw_payload: Mapping[str, object],
         source_record_version: str | None = None,
         source_record_hash: str | None = None,
-        lookup_fields: Mapping[str, Any] | None = None,
+        lookup_fields: Mapping[str, object] | None = None,
         observed_at: datetime | None = None,
     ) -> RawSourceRecord:
         with self._bind_batch_context(batch):
@@ -159,19 +164,22 @@ class IngestPersistenceService:
         batch: RawIngestBatch,
         *,
         checkpoint_key: str,
-        cursor_value: Mapping[str, Any],
+        cursor_value: Mapping[str, object],
         last_batch_id: int | None | object = _UNSET,
         last_polled_at: datetime | None | object = _UNSET,
     ) -> SourceCheckpoint:
-        resolved_last_batch_id = batch.id if last_batch_id is _UNSET else last_batch_id
+        repository_kwargs: dict[str, object] = {
+            "source_name": batch.source_name,
+            "checkpoint_key": checkpoint_key,
+            "cursor_value": cursor_value,
+            "last_batch_id": batch.id if last_batch_id is _UNSET else last_batch_id,
+        }
+        if last_polled_at is not _UNSET:
+            repository_kwargs["last_polled_at"] = last_polled_at
 
         with self._bind_batch_context(batch):
             checkpoint = self.checkpoint_repository.update_source_checkpoint(
-                source_name=batch.source_name,
-                checkpoint_key=checkpoint_key,
-                cursor_value=cursor_value,
-                last_batch_id=resolved_last_batch_id,
-                last_polled_at=last_polled_at,
+                **repository_kwargs,
             )
             log_scheduler_event(
                 self.logger,
@@ -193,7 +201,7 @@ class IngestPersistenceService:
         error_message: str,
         raw_source_record: RawSourceRecord | None = None,
         raw_source_record_id: int | None = None,
-        error_context: Mapping[str, Any] | None = None,
+        error_context: Mapping[str, object] | None = None,
         occurred_at: datetime | None = None,
     ) -> NormalizationError:
         resolved_raw_source_record_id = (
@@ -226,7 +234,9 @@ class IngestPersistenceService:
             return error
 
     @staticmethod
-    def _bind_batch_context(batch: RawIngestBatch):
+    def _bind_batch_context(
+        batch: RawIngestBatch,
+    ) -> AbstractContextManager[None]:
         return bind_log_context(
             correlation_id=batch.correlation_id,
             source_job_id=batch.source_job_id,
