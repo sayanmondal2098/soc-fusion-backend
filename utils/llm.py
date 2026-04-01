@@ -14,9 +14,95 @@ from utils.prompt import get_default_prompt
 class LLMConfigurationError(RuntimeError):
     """Raised when LLM configuration is missing or invalid."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        field: str | None = None,
+        provider: str | None = None,
+        hint: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.field = field
+        self.provider = provider
+        self.hint = hint
+        self.details = details or {}
+
+    def __str__(self) -> str:
+        parts = [self.message]
+        if self.field:
+            parts.append(f"field={self.field}")
+        if self.provider:
+            parts.append(f"provider={self.provider}")
+        if self.hint:
+            parts.append(f"hint={self.hint}")
+        return " | ".join(parts)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "type": "llm_configuration_error",
+            "message": self.message,
+        }
+        if self.field:
+            payload["field"] = self.field
+        if self.provider:
+            payload["provider"] = self.provider
+        if self.hint:
+            payload["hint"] = self.hint
+        if self.details:
+            payload["details"] = self.details
+        return payload
+
 
 class LLMRequestError(RuntimeError):
     """Raised when a provider request fails or returns invalid data."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: str | None = None,
+        status_code: int | None = None,
+        endpoint: str | None = None,
+        retryable: bool | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.provider = provider
+        self.status_code = status_code
+        self.endpoint = endpoint
+        self.retryable = retryable
+        self.details = details or {}
+
+    def __str__(self) -> str:
+        parts = [self.message]
+        if self.provider:
+            parts.append(f"provider={self.provider}")
+        if self.status_code is not None:
+            parts.append(f"status_code={self.status_code}")
+        if self.retryable is not None:
+            parts.append(f"retryable={str(self.retryable).lower()}")
+        return " | ".join(parts)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "type": "llm_request_error",
+            "message": self.message,
+        }
+        if self.provider:
+            payload["provider"] = self.provider
+        if self.status_code is not None:
+            payload["status_code"] = self.status_code
+        if self.endpoint:
+            payload["endpoint"] = self.endpoint
+        if self.retryable is not None:
+            payload["retryable"] = self.retryable
+        if self.details:
+            payload["details"] = self.details
+        return payload
 
 
 PROMPT_MODULE = "utils.prompt"
@@ -30,7 +116,10 @@ def _env_int(name: str, default: int) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        raise LLMConfigurationError(f"{name} must be an integer when provided") from exc
+        raise LLMConfigurationError(
+            f"{name} must be an integer when provided",
+            field=name,
+        ) from exc
 
 
 def _env_float(name: str, default: float) -> float:
@@ -41,7 +130,10 @@ def _env_float(name: str, default: float) -> float:
     try:
         return float(raw)
     except ValueError as exc:
-        raise LLMConfigurationError(f"{name} must be a float when provided") from exc
+        raise LLMConfigurationError(
+            f"{name} must be a float when provided",
+            field=name,
+        ) from exc
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -55,7 +147,10 @@ def _env_bool(name: str, default: bool = False) -> bool:
 def load_default_prompt() -> str:
     prompt = get_default_prompt().strip()
     if not prompt:
-        raise LLMConfigurationError(f"Default prompt is empty in {PROMPT_MODULE}")
+        raise LLMConfigurationError(
+            f"Default prompt is empty in {PROMPT_MODULE}",
+            field="default_prompt",
+        )
 
     return prompt
 
@@ -63,11 +158,14 @@ def load_default_prompt() -> str:
 def build_prompt(user_prompt: str, system_prompt: str | None = None) -> str:
     final_user_prompt = user_prompt.strip()
     if not final_user_prompt:
-        raise LLMConfigurationError("user prompt cannot be empty")
+        raise LLMConfigurationError("user prompt cannot be empty", field="user_prompt")
 
     final_system_prompt = (system_prompt or load_default_prompt()).strip()
     if not final_system_prompt:
-        raise LLMConfigurationError("system prompt cannot be empty")
+        raise LLMConfigurationError(
+            "system prompt cannot be empty",
+            field="system_prompt",
+        )
 
     return f"{final_system_prompt}\n\nUser request:\n{final_user_prompt}"
 
@@ -91,18 +189,33 @@ def _json_request(
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise LLMRequestError(
-            f"LLM provider returned HTTP {exc.code}: {detail}"
+            f"LLM provider returned HTTP {exc.code}",
+            status_code=exc.code,
+            endpoint=url,
+            retryable=exc.code >= 500,
+            details={"body": detail},
         ) from exc
     except urllib.error.URLError as exc:
-        raise LLMRequestError(f"LLM provider request failed: {exc}") from exc
+        raise LLMRequestError(
+            f"LLM provider request failed: {exc}",
+            endpoint=url,
+            retryable=True,
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise LLMRequestError("LLM provider returned invalid JSON") from exc
+        raise LLMRequestError(
+            "LLM provider returned invalid JSON",
+            endpoint=url,
+            retryable=True,
+        ) from exc
 
 
 def _extract_openai_text(response_payload: dict[str, Any]) -> str:
     choices = response_payload.get("choices", [])
     if not choices:
-        raise LLMRequestError("OpenAI-compatible provider returned no choices")
+        raise LLMRequestError(
+            "OpenAI-compatible provider returned no choices",
+            provider="openai-compatible",
+        )
 
     message = choices[0].get("message", {})
     content = message.get("content", "")
@@ -120,7 +233,10 @@ def _extract_openai_text(response_payload: dict[str, Any]) -> str:
         text = ""
 
     if not text:
-        raise LLMRequestError("OpenAI-compatible provider returned an empty response")
+        raise LLMRequestError(
+            "OpenAI-compatible provider returned an empty response",
+            provider="openai-compatible",
+        )
 
     return text
 
@@ -128,7 +244,10 @@ def _extract_openai_text(response_payload: dict[str, Any]) -> str:
 def _extract_gemini_text(response_payload: dict[str, Any]) -> str:
     candidates = response_payload.get("candidates", [])
     if not candidates:
-        raise LLMRequestError("Gemini provider returned no candidates")
+        raise LLMRequestError(
+            "Gemini provider returned no candidates",
+            provider="gemini",
+        )
 
     parts = candidates[0].get("content", {}).get("parts", [])
     text = "".join(
@@ -136,7 +255,10 @@ def _extract_gemini_text(response_payload: dict[str, Any]) -> str:
     ).strip()
 
     if not text:
-        raise LLMRequestError("Gemini provider returned an empty response")
+        raise LLMRequestError(
+            "Gemini provider returned an empty response",
+            provider="gemini",
+        )
 
     return text
 
@@ -144,7 +266,11 @@ def _extract_gemini_text(response_payload: dict[str, Any]) -> str:
 def _call_gemini(prompt: str) -> dict[str, str]:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
-        raise LLMConfigurationError("GEMINI_API_KEY is not configured")
+        raise LLMConfigurationError(
+            "GEMINI_API_KEY is not configured",
+            field="GEMINI_API_KEY",
+            provider="gemini",
+        )
 
     model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
     temperature = _env_float("LLM_TEMPERATURE", _env_float("GEMINI_TEMPERATURE", 0.2))
@@ -182,14 +308,22 @@ def _call_gemini(prompt: str) -> dict[str, str]:
 def _call_openai_compatible(prompt: str) -> dict[str, str]:
     api_key = os.getenv("LLM_API_KEY", "").strip()
     if not api_key:
-        raise LLMConfigurationError("LLM_API_KEY is not configured")
+        raise LLMConfigurationError(
+            "LLM_API_KEY is not configured",
+            field="LLM_API_KEY",
+            provider="openai-compatible",
+        )
 
     base_url = (
         os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
     )
     model = os.getenv("LLM_MODEL", "").strip()
     if not model:
-        raise LLMConfigurationError("LLM_MODEL is not configured")
+        raise LLMConfigurationError(
+            "LLM_MODEL is not configured",
+            field="LLM_MODEL",
+            provider="openai-compatible",
+        )
 
     temperature = _env_float("LLM_TEMPERATURE", 0.2)
     max_tokens = _env_int("LLM_MAX_OUTPUT_TOKENS", 512)
@@ -227,7 +361,9 @@ def get_provider() -> str:
         return "gemini"
 
     raise LLMConfigurationError(
-        "No LLM provider configured. Set LLM_PROVIDER or provider-specific environment variables."
+        "No LLM provider configured. Set LLM_PROVIDER or provider-specific environment variables.",
+        field="LLM_PROVIDER",
+        hint="Set LLM_PROVIDER, or configure GEMINI_API_KEY, or set LLM_API_KEY with LLM_MODEL.",
     )
 
 
@@ -241,7 +377,11 @@ def generate_text(prompt: str, system_prompt: str | None = None) -> dict[str, st
     if provider in {"openai", "openai-compatible", "openrouter"}:
         return _call_openai_compatible(final_prompt)
 
-    raise LLMConfigurationError(f"Unsupported LLM provider: {provider}")
+    raise LLMConfigurationError(
+        f"Unsupported LLM provider: {provider}",
+        field="LLM_PROVIDER",
+        provider=provider,
+    )
 
 
 def generate_text_with_gemini(prompt: str) -> dict[str, str]:
@@ -253,11 +393,19 @@ def generate_text_with_gemini(prompt: str) -> dict[str, str]:
 def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, str]:
     path = Path(prompt_path)
     if not path.exists():
-        raise LLMConfigurationError(f"Prompt file not found: {path}")
+        raise LLMConfigurationError(
+            f"Prompt file not found: {path}",
+            field="prompt_file",
+            details={"path": str(path)},
+        )
 
     prompt = path.read_text(encoding="utf-8").lstrip("\ufeff").strip()
     if not prompt:
-        raise LLMConfigurationError(f"Prompt file is empty: {path}")
+        raise LLMConfigurationError(
+            f"Prompt file is empty: {path}",
+            field="prompt_file",
+            details={"path": str(path)},
+        )
 
     return generate_text(prompt)
 

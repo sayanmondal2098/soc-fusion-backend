@@ -39,9 +39,9 @@ Backend repository scaffold for the SoC Fusion platform.
 - `POST /llm/generate` sends a prompt to the configured provider and returns generated text.
 - Default request body: `{"prompt": "Summarize T1059 in one paragraph."}`
 - Optional fields for `/llm/generate`:
-	- `system_prompt`: override [utils/prompt.txt](utils/prompt.txt) for this request.
+	- `system_prompt`: override the default prompt defined in `utils/prompt.py` for this request.
 	- `prompt_file`: load prompt text from a file path on disk.
-- `GET /llm/settings` returns resolved provider/model settings and prompt-file status.
+- `GET /llm/settings` returns resolved provider/model settings and default prompt module status.
 - Provider resolution order:
 	- `LLM_PROVIDER` when explicitly set.
 	- OpenAI-compatible if both `LLM_API_KEY` and `LLM_MODEL` are set.
@@ -50,4 +50,5 @@ Backend repository scaffold for the SoC Fusion platform.
 ## Status
 
 This repository currently contains only the requested backend structure and starter files.
+
 
