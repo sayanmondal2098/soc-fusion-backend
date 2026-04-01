@@ -3,8 +3,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 _BOOTSTRAP_FLAG = "SOC_FUSION_APP_BOOTSTRAPPED"
+
+
+def _load_env_file() -> None:
+    env_file = os.getenv("ENV_FILE", ".env")
+    env_path = Path(env_file)
+
+    if not env_path.is_absolute():
+        env_path = Path(__file__).resolve().parent / env_path
+
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=False)
 
 
 def _handoff_to_local_venv() -> None:
@@ -34,6 +47,8 @@ except ImportError as exc:
 
 
 def main() -> None:
+    _load_env_file()
+
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
     reload_enabled = os.getenv("RELOAD", "false").lower() in {"1", "true", "yes"}

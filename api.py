@@ -1,4 +1,13 @@
 ﻿from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from llm import (
+    LLMConfigurationError,
+    LLMRequestError,
+    generate_text,
+    generate_text_from_file,
+    get_llm_settings,
+)
 
 from mitre.service import (
     DatabaseNotReadyError,
@@ -10,6 +19,12 @@ from mitre.service import (
 
 
 app = FastAPI(title="SoC Fusion Backend")
+
+
+class LLMGenerateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=12000)
+    system_prompt: str | None = Field(default=None, min_length=1, max_length=20000)
+    prompt_file: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 @app.get("/health")
@@ -63,3 +78,21 @@ def mitre_object(
         )
 
     return document
+
+
+@app.post("/llm/generate")
+def llm_generate(payload: LLMGenerateRequest) -> dict[str, str]:
+    try:
+        if payload.prompt_file:
+            return generate_text_from_file(payload.prompt_file)
+
+        return generate_text(payload.prompt, system_prompt=payload.system_prompt)
+    except LLMConfigurationError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except LLMRequestError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/llm/settings")
+def llm_settings() -> dict:
+    return get_llm_settings()
