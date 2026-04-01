@@ -38,13 +38,11 @@ Backend repository scaffold for the SoC Fusion platform.
 ## LLM Support
 
 - `POST /llm/generate` sends a prompt to Gemini and returns generated text.
-- Default request body: `{"prompt": "Summarize T1059 in one paragraph."}`
-- Optional fields for `/llm/generate`:
-  - `system_prompt`: override the default prompt defined in `utils/prompt.py` for this request.
-  - `prompt_file`: load prompt text from a file path on disk.
+- Request body: `{"prompt": "Summarize T1059 in one paragraph."}`
 - `GET /llm/settings` returns Gemini model settings and default prompt module status.
 - Only Gemini is supported by the current backend.
 
 ## Status
 
 This repository currently contains only the requested backend structure and starter files.
+
