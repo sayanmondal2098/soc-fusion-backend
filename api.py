@@ -5,7 +5,6 @@ from utils.llm import (
     LLMConfigurationError,
     LLMRequestError,
     generate_text,
-    generate_text_from_file,
     get_llm_settings,
 )
 
@@ -23,8 +22,6 @@ app = FastAPI(title="SoC Fusion Backend")
 
 class LLMGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=12000)
-    system_prompt: str | None = Field(default=None, min_length=1, max_length=20000)
-    prompt_file: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 @app.get("/health")
@@ -83,10 +80,7 @@ def mitre_object(
 @app.post("/llm/generate")
 def llm_generate(payload: LLMGenerateRequest) -> dict[str, str]:
     try:
-        if payload.prompt_file:
-            return generate_text_from_file(payload.prompt_file)
-
-        return generate_text(payload.prompt, system_prompt=payload.system_prompt)
+        return generate_text(payload.prompt)
     except LLMConfigurationError as exc:
         raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
     except LLMRequestError as exc:

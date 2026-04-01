@@ -108,6 +108,7 @@ class LLMRequestError(RuntimeError):
 PROMPT_MODULE = "utils.prompt"
 SUPPORTED_PROVIDER = "gemini"
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _env_int(name: str, default: int) -> int:
@@ -308,9 +309,13 @@ def generate_text_with_gemini(prompt: str) -> dict[str, str]:
     return generate_text(prompt)
 
 
-def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, str]:
+def resolve_prompt_file(prompt_path: str | os.PathLike[str]) -> Path:
     path = Path(prompt_path)
-    if not path.exists():
+    resolved = path if path.is_absolute() else WORKSPACE_ROOT / path
+
+    try:
+        resolved = resolved.resolve(strict=True)
+    except FileNotFoundError:
         raise LLMConfigurationError(
             f"Prompt file not found: {path}",
             field="prompt_file",
@@ -318,6 +323,25 @@ def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, st
             details={"path": str(path)},
         )
 
+    try:
+        resolved.relative_to(WORKSPACE_ROOT.resolve())
+    except ValueError as exc:
+        raise LLMConfigurationError(
+            "Prompt file must stay within the project workspace",
+            field="prompt_file",
+            provider=SUPPORTED_PROVIDER,
+            details={
+                "path": str(path),
+                "resolved_path": str(resolved),
+                "workspace_root": str(WORKSPACE_ROOT.resolve()),
+            },
+        ) from exc
+
+    return resolved
+
+
+def load_prompt_from_file(prompt_path: str | os.PathLike[str]) -> str:
+    path = resolve_prompt_file(prompt_path)
     prompt = path.read_text(encoding="utf-8").lstrip("\ufeff").strip()
     if not prompt:
         raise LLMConfigurationError(
@@ -327,7 +351,15 @@ def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, st
             details={"path": str(path)},
         )
 
-    return generate_text(prompt)
+    return prompt
+
+
+def generate_text_from_file(
+    prompt_path: str | os.PathLike[str],
+    *,
+    system_prompt: str | None = None,
+) -> dict[str, str]:
+    return generate_text(load_prompt_from_file(prompt_path), system_prompt=system_prompt)
 
 
 def get_llm_settings() -> dict[str, Any]:
@@ -350,6 +382,7 @@ def get_llm_settings() -> dict[str, Any]:
         or os.getenv("GEMINI_MAX_OUTPUT_TOKENS")
         or None,
         "prompt_module": PROMPT_MODULE,
+        "workspace_root": str(WORKSPACE_ROOT.resolve()),
         "has_gemini_api_key": bool(os.getenv("GEMINI_API_KEY")),
         "verbose_logging": _env_bool("LLM_VERBOSE", False),
     }
