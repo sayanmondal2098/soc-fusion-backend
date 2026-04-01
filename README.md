@@ -14,9 +14,10 @@ Backend repository scaffold for the SoC Fusion platform.
 - Settings load from a repository-root `.env` file by default, or from `ENV_FILE` when it is set.
 - Process environment variables override `.env` values, which lets secret managers or container runtime env injection take precedence.
 - Critical startup settings are `DATABASE_URL`, `OTX_API_KEY`, `MISP_URL`, `MISP_API_KEY`, `ADMIN_AUTH_SECRET`, and either `RAW_STORAGE_PATH` or `RAW_STORAGE_BUCKET`.
-- LLM settings support both Gemini and OpenAI-compatible providers.
-- Generic settings are `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_TEMPERATURE`, and `LLM_MAX_OUTPUT_TOKENS`.
+- LLM support is currently Gemini-only.
 - Gemini settings are `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TEMPERATURE`, and `GEMINI_MAX_OUTPUT_TOKENS`.
+- Generic aliases still accepted for shared tuning are `LLM_PROVIDER`, `LLM_TEMPERATURE`, and `LLM_MAX_OUTPUT_TOKENS`.
+- If `LLM_PROVIDER` is set, it must be `gemini`.
 - A demo [.env](e:/SoC_Threat/soc-fusion-backend/.env) is included for local scaffolding only. Replace those values before using the service outside development.
 
 ## Running
@@ -36,19 +37,14 @@ Backend repository scaffold for the SoC Fusion platform.
 
 ## LLM Support
 
-- `POST /llm/generate` sends a prompt to the configured provider and returns generated text.
+- `POST /llm/generate` sends a prompt to Gemini and returns generated text.
 - Default request body: `{"prompt": "Summarize T1059 in one paragraph."}`
 - Optional fields for `/llm/generate`:
-	- `system_prompt`: override the default prompt defined in `utils/prompt.py` for this request.
-	- `prompt_file`: load prompt text from a file path on disk.
-- `GET /llm/settings` returns resolved provider/model settings and default prompt module status.
-- Provider resolution order:
-	- `LLM_PROVIDER` when explicitly set.
-	- OpenAI-compatible if both `LLM_API_KEY` and `LLM_MODEL` are set.
-	- Gemini if `GEMINI_API_KEY` is set.
+  - `system_prompt`: override the default prompt defined in `utils/prompt.py` for this request.
+  - `prompt_file`: load prompt text from a file path on disk.
+- `GET /llm/settings` returns Gemini model settings and default prompt module status.
+- Only Gemini is supported by the current backend.
 
 ## Status
 
 This repository currently contains only the requested backend structure and starter files.
-
-
