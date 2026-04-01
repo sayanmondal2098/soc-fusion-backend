@@ -64,7 +64,9 @@ def normalize_domain_list(obj: dict[str, Any], fallback_domain: str) -> list[str
     return sorted(domain for domain in domains if domain)
 
 
-def merge_attack_object(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+def merge_attack_object(
+    existing: dict[str, Any], incoming: dict[str, Any]
+) -> dict[str, Any]:
     merged = dict(existing)
 
     for key, value in incoming.items():
@@ -172,7 +174,9 @@ def fetch_json(url: str) -> tuple[bytes, dict[str, Any]]:
         with urllib.request.urlopen(request, timeout=120) as response:
             payload = response.read()
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"failed to download MITRE ATT&CK data from {url}: {exc}") from exc
+        raise RuntimeError(
+            f"failed to download MITRE ATT&CK data from {url}: {exc}"
+        ) from exc
 
     try:
         return payload, json.loads(payload.decode("utf-8"))
@@ -271,11 +275,17 @@ def write_documents(documents: list[dict[str, Any]], metadata: dict[str, Any]) -
         )
         connection.executemany(
             "INSERT INTO metadata (key, value) VALUES (?, ?)",
-            [(key, json.dumps(value, ensure_ascii=True)) for key, value in metadata.items()],
+            [
+                (key, json.dumps(value, ensure_ascii=True))
+                for key, value in metadata.items()
+            ],
         )
         connection.commit()
 
-def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+
+def build_documents(
+    bundles: dict[str, dict[str, Any]]
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     objects: dict[str, dict[str, Any]] = {}
     relationships: list[dict[str, Any]] = []
 
@@ -288,11 +298,15 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
                     relationships.append(item)
                 continue
 
-            if item_type not in SUPPORTED_STIX_TYPES or not is_active_attack_object(item):
+            if item_type not in SUPPORTED_STIX_TYPES or not is_active_attack_object(
+                item
+            ):
                 continue
 
             normalized = dict(item)
-            normalized["x_mitre_domains"] = normalize_domain_list(normalized, fallback_domain)
+            normalized["x_mitre_domains"] = normalize_domain_list(
+                normalized, fallback_domain
+            )
 
             existing = objects.get(normalized["id"])
             objects[normalized["id"]] = (
@@ -381,7 +395,9 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
 
     documents: list[dict[str, Any]] = []
 
-    for stix_id, obj in sorted(objects.items(), key=lambda item: (item[1].get("name", ""), item[0])):
+    for stix_id, obj in sorted(
+        objects.items(), key=lambda item: (item[1].get("name", ""), item[0])
+    ):
         attack_id = extract_attack_id(obj)
         common = {
             "stix_id": stix_id,
@@ -405,24 +421,39 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
                 ],
                 "detection_text": obj.get("x_mitre_detection", ""),
                 "legacy_data_sources": obj.get("x_mitre_data_sources", []),
-                "parent": object_summary(objects[parent_by_child[stix_id]])
-                if stix_id in parent_by_child and parent_by_child[stix_id] in objects
-                else None,
+                "parent": (
+                    object_summary(objects[parent_by_child[stix_id]])
+                    if stix_id in parent_by_child
+                    and parent_by_child[stix_id] in objects
+                    else None
+                ),
                 "children": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in children_by_parent.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in children_by_parent.get(stix_id, set())
+                    ]
                 ),
                 "mitigations": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in mitigations_by_technique.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in mitigations_by_technique.get(stix_id, set())
+                    ]
                 ),
                 "detections": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in detections_by_technique.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in detections_by_technique.get(stix_id, set())
+                    ]
                 ),
             }
         elif obj.get("type") == "course-of-action":
             document = {
                 **common,
                 "techniques": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in techniques_by_mitigation.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in techniques_by_mitigation.get(stix_id, set())
+                    ]
                 ),
             }
         elif obj.get("type") == "x-mitre-data-source":
@@ -431,7 +462,10 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
                 "platforms": obj.get("x_mitre_platforms", []),
                 "collection_layers": obj.get("x_mitre_collection_layers", []),
                 "data_components": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in components_by_source.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in components_by_source.get(stix_id, set())
+                    ]
                 ),
             }
         elif obj.get("type") == "x-mitre-data-component":
@@ -446,24 +480,36 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
                 "data_source": source_summary,
                 "log_sources": obj.get("x_mitre_log_sources", []),
                 "techniques": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in techniques_by_detector.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in techniques_by_detector.get(stix_id, set())
+                    ]
                 ),
             }
         elif obj.get("type") == "x-mitre-detection-strategy":
             document = {
                 **common,
                 "techniques": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in techniques_by_detector.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in techniques_by_detector.get(stix_id, set())
+                    ]
                 ),
                 "analytics": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in analytics_by_strategy.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in analytics_by_strategy.get(stix_id, set())
+                    ]
                 ),
             }
         elif obj.get("type") == "x-mitre-analytic":
             document = {
                 **common,
                 "detection_strategies": unique_sorted_summaries(
-                    [object_summary(objects[item_id]) for item_id in strategies_by_analytic.get(stix_id, set())]
+                    [
+                        object_summary(objects[item_id])
+                        for item_id in strategies_by_analytic.get(stix_id, set())
+                    ]
                 ),
                 "log_source_references": obj.get("x_mitre_log_source_references", []),
             }
@@ -484,6 +530,7 @@ def build_documents(bundles: dict[str, dict[str, Any]]) -> tuple[list[dict[str, 
         counts[document["object_type"]] += 1
 
     return list(deduped_documents.values()), dict(sorted(counts.items()))
+
 
 def sync_attack_content() -> dict[str, Any]:
     ensure_storage_dirs()
@@ -573,7 +620,9 @@ def search_attack_content(
         raise ValueError("search query cannot be empty")
 
     lowered_query = cleaned_query.lower()
-    terms = list(dict.fromkeys(re.findall(r"[a-z0-9._-]+", lowered_query) or [lowered_query]))
+    terms = list(
+        dict.fromkeys(re.findall(r"[a-z0-9._-]+", lowered_query) or [lowered_query])
+    )
 
     where_clauses = ["1=1"]
     where_params: list[Any] = []
@@ -669,16 +718,24 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Sync and search MITRE ATT&CK data.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("sync", help="Download ATT&CK data and rebuild the local index.")
+    subparsers.add_parser(
+        "sync", help="Download ATT&CK data and rebuild the local index."
+    )
     subparsers.add_parser("status", help="Show MITRE cache and database status.")
 
-    search_parser = subparsers.add_parser("search", help="Search the local MITRE index.")
-    search_parser.add_argument("query", help="Free-text search or ATT&CK ID, for example T1059")
+    search_parser = subparsers.add_parser(
+        "search", help="Search the local MITRE index."
+    )
+    search_parser.add_argument(
+        "query", help="Free-text search or ATT&CK ID, for example T1059"
+    )
     search_parser.add_argument("--type", dest="object_type", default=None)
     search_parser.add_argument("--domain", default=None)
     search_parser.add_argument("--limit", type=int, default=10)
 
-    show_parser = subparsers.add_parser("show", help="Show a full indexed object by STIX ID.")
+    show_parser = subparsers.add_parser(
+        "show", help="Show a full indexed object by STIX ID."
+    )
     show_parser.add_argument("stix_id", help="STIX ID returned by the search command")
 
     args = parser.parse_args(argv)
@@ -710,4 +767,3 @@ def main(argv: list[str] | None = None) -> None:
         if document is None:
             raise SystemExit(f"MITRE object not found: {args.stix_id}")
         print(json.dumps(document, indent=2))
-

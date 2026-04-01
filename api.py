@@ -58,6 +58,8 @@ def mitre_object(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     if document is None:
-        raise HTTPException(status_code=404, detail=f"MITRE object not found: {stix_id}")
+        raise HTTPException(
+            status_code=404, detail=f"MITRE object not found: {stix_id}"
+        )
 
     return document
