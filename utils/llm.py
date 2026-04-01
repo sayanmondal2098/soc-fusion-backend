@@ -57,7 +57,7 @@ class LLMConfigurationError(RuntimeError):
 
 
 class LLMRequestError(RuntimeError):
-    """Raised when a provider request fails or returns invalid data."""
+    """Raised when the Gemini request fails or returns invalid data."""
 
     def __init__(
         self,
@@ -106,6 +106,8 @@ class LLMRequestError(RuntimeError):
 
 
 PROMPT_MODULE = "utils.prompt"
+SUPPORTED_PROVIDER = "gemini"
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -119,6 +121,7 @@ def _env_int(name: str, default: int) -> int:
         raise LLMConfigurationError(
             f"{name} must be an integer when provided",
             field=name,
+            provider=SUPPORTED_PROVIDER,
         ) from exc
 
 
@@ -133,6 +136,7 @@ def _env_float(name: str, default: float) -> float:
         raise LLMConfigurationError(
             f"{name} must be a float when provided",
             field=name,
+            provider=SUPPORTED_PROVIDER,
         ) from exc
 
 
@@ -150,6 +154,7 @@ def load_default_prompt() -> str:
         raise LLMConfigurationError(
             f"Default prompt is empty in {PROMPT_MODULE}",
             field="default_prompt",
+            provider=SUPPORTED_PROVIDER,
         )
 
     return prompt
@@ -158,13 +163,18 @@ def load_default_prompt() -> str:
 def build_prompt(user_prompt: str, system_prompt: str | None = None) -> str:
     final_user_prompt = user_prompt.strip()
     if not final_user_prompt:
-        raise LLMConfigurationError("user prompt cannot be empty", field="user_prompt")
+        raise LLMConfigurationError(
+            "user prompt cannot be empty",
+            field="user_prompt",
+            provider=SUPPORTED_PROVIDER,
+        )
 
     final_system_prompt = (system_prompt or load_default_prompt()).strip()
     if not final_system_prompt:
         raise LLMConfigurationError(
             "system prompt cannot be empty",
             field="system_prompt",
+            provider=SUPPORTED_PROVIDER,
         )
 
     return f"{final_system_prompt}\n\nUser request:\n{final_user_prompt}"
@@ -189,7 +199,8 @@ def _json_request(
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise LLMRequestError(
-            f"LLM provider returned HTTP {exc.code}",
+            f"Gemini returned HTTP {exc.code}",
+            provider=SUPPORTED_PROVIDER,
             status_code=exc.code,
             endpoint=url,
             retryable=exc.code >= 500,
@@ -197,56 +208,26 @@ def _json_request(
         ) from exc
     except urllib.error.URLError as exc:
         raise LLMRequestError(
-            f"LLM provider request failed: {exc}",
+            f"Gemini request failed: {exc}",
+            provider=SUPPORTED_PROVIDER,
             endpoint=url,
             retryable=True,
         ) from exc
     except json.JSONDecodeError as exc:
         raise LLMRequestError(
-            "LLM provider returned invalid JSON",
+            "Gemini returned invalid JSON",
+            provider=SUPPORTED_PROVIDER,
             endpoint=url,
             retryable=True,
         ) from exc
-
-
-def _extract_openai_text(response_payload: dict[str, Any]) -> str:
-    choices = response_payload.get("choices", [])
-    if not choices:
-        raise LLMRequestError(
-            "OpenAI-compatible provider returned no choices",
-            provider="openai-compatible",
-        )
-
-    message = choices[0].get("message", {})
-    content = message.get("content", "")
-
-    if isinstance(content, str):
-        text = content.strip()
-    elif isinstance(content, list):
-        text = "".join(
-            item.get("text", "")
-            for item in content
-            if isinstance(item, dict)
-            and item.get("type") in {None, "text", "output_text"}
-        ).strip()
-    else:
-        text = ""
-
-    if not text:
-        raise LLMRequestError(
-            "OpenAI-compatible provider returned an empty response",
-            provider="openai-compatible",
-        )
-
-    return text
 
 
 def _extract_gemini_text(response_payload: dict[str, Any]) -> str:
     candidates = response_payload.get("candidates", [])
     if not candidates:
         raise LLMRequestError(
-            "Gemini provider returned no candidates",
-            provider="gemini",
+            "Gemini returned no candidates",
+            provider=SUPPORTED_PROVIDER,
         )
 
     parts = candidates[0].get("content", {}).get("parts", [])
@@ -256,20 +237,39 @@ def _extract_gemini_text(response_payload: dict[str, Any]) -> str:
 
     if not text:
         raise LLMRequestError(
-            "Gemini provider returned an empty response",
-            provider="gemini",
+            "Gemini returned an empty response",
+            provider=SUPPORTED_PROVIDER,
         )
 
     return text
 
 
-def _call_gemini(prompt: str) -> dict[str, str]:
+def get_provider() -> str:
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+    if not provider:
+        return SUPPORTED_PROVIDER
+
+    if provider != SUPPORTED_PROVIDER:
+        raise LLMConfigurationError(
+            f"Unsupported LLM provider: {provider}",
+            field="LLM_PROVIDER",
+            provider=provider,
+            hint="Only Gemini is supported in the current backend.",
+        )
+
+    return provider
+
+
+def generate_text(prompt: str, system_prompt: str | None = None) -> dict[str, str]:
+    final_prompt = build_prompt(prompt, system_prompt=system_prompt)
+    provider = get_provider()
+
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise LLMConfigurationError(
             "GEMINI_API_KEY is not configured",
             field="GEMINI_API_KEY",
-            provider="gemini",
+            provider=provider,
         )
 
     model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
@@ -280,12 +280,11 @@ def _call_gemini(prompt: str) -> dict[str, str]:
     )
 
     url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{urllib.parse.quote(model, safe='')}:generateContent"
+        f"{GEMINI_API_BASE}/{urllib.parse.quote(model, safe='')}:generateContent"
         f"?key={urllib.parse.quote(api_key, safe='')}"
     )
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": [{"text": final_prompt}]}],
         "generationConfig": {
             "temperature": temperature,
             "maxOutputTokens": max_output_tokens,
@@ -299,94 +298,13 @@ def _call_gemini(prompt: str) -> dict[str, str]:
     )
 
     return {
-        "provider": "gemini",
+        "provider": provider,
         "model": model,
         "text": _extract_gemini_text(response_payload),
     }
 
 
-def _call_openai_compatible(prompt: str) -> dict[str, str]:
-    api_key = os.getenv("LLM_API_KEY", "").strip()
-    if not api_key:
-        raise LLMConfigurationError(
-            "LLM_API_KEY is not configured",
-            field="LLM_API_KEY",
-            provider="openai-compatible",
-        )
-
-    base_url = (
-        os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
-    )
-    model = os.getenv("LLM_MODEL", "").strip()
-    if not model:
-        raise LLMConfigurationError(
-            "LLM_MODEL is not configured",
-            field="LLM_MODEL",
-            provider="openai-compatible",
-        )
-
-    temperature = _env_float("LLM_TEMPERATURE", 0.2)
-    max_tokens = _env_int("LLM_MAX_OUTPUT_TOKENS", 512)
-
-    response_payload = _json_request(
-        url=f"{base_url}/chat/completions",
-        payload={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        },
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-    )
-
-    return {
-        "provider": "openai-compatible",
-        "model": model,
-        "text": _extract_openai_text(response_payload),
-    }
-
-
-def get_provider() -> str:
-    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
-    if provider:
-        return provider
-
-    if os.getenv("LLM_API_KEY") and os.getenv("LLM_MODEL"):
-        return "openai-compatible"
-
-    if os.getenv("GEMINI_API_KEY"):
-        return "gemini"
-
-    raise LLMConfigurationError(
-        "No LLM provider configured. Set LLM_PROVIDER or provider-specific environment variables.",
-        field="LLM_PROVIDER",
-        hint="Set LLM_PROVIDER, or configure GEMINI_API_KEY, or set LLM_API_KEY with LLM_MODEL.",
-    )
-
-
-def generate_text(prompt: str, system_prompt: str | None = None) -> dict[str, str]:
-    final_prompt = build_prompt(prompt, system_prompt=system_prompt)
-    provider = get_provider()
-
-    if provider == "gemini":
-        return _call_gemini(final_prompt)
-
-    if provider in {"openai", "openai-compatible", "openrouter"}:
-        return _call_openai_compatible(final_prompt)
-
-    raise LLMConfigurationError(
-        f"Unsupported LLM provider: {provider}",
-        field="LLM_PROVIDER",
-        provider=provider,
-    )
-
-
 def generate_text_with_gemini(prompt: str) -> dict[str, str]:
-    """Backward-compatible alias for older code paths."""
-
     return generate_text(prompt)
 
 
@@ -396,6 +314,7 @@ def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, st
         raise LLMConfigurationError(
             f"Prompt file not found: {path}",
             field="prompt_file",
+            provider=SUPPORTED_PROVIDER,
             details={"path": str(path)},
         )
 
@@ -404,6 +323,7 @@ def generate_text_from_file(prompt_path: str | os.PathLike[str]) -> dict[str, st
         raise LLMConfigurationError(
             f"Prompt file is empty: {path}",
             field="prompt_file",
+            provider=SUPPORTED_PROVIDER,
             details={"path": str(path)},
         )
 
@@ -421,16 +341,15 @@ def get_llm_settings() -> dict[str, Any]:
     return {
         "configured_provider": configured_provider,
         "resolved_provider": resolved_provider,
-        "model": os.getenv("LLM_MODEL") or os.getenv("GEMINI_MODEL") or None,
+        "supported_provider": SUPPORTED_PROVIDER,
+        "model": os.getenv("GEMINI_MODEL") or "gemini-1.5-flash",
         "temperature": os.getenv("LLM_TEMPERATURE")
         or os.getenv("GEMINI_TEMPERATURE")
         or None,
         "max_output_tokens": os.getenv("LLM_MAX_OUTPUT_TOKENS")
         or os.getenv("GEMINI_MAX_OUTPUT_TOKENS")
         or None,
-        "base_url": os.getenv("LLM_BASE_URL") or None,
         "prompt_module": PROMPT_MODULE,
-        "has_llm_api_key": bool(os.getenv("LLM_API_KEY")),
         "has_gemini_api_key": bool(os.getenv("GEMINI_API_KEY")),
         "verbose_logging": _env_bool("LLM_VERBOSE", False),
     }

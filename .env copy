@@ -1,4 +1,4 @@
-# Demo development configuration only. Replace before using outside local setup.
+﻿# Demo development configuration only. Replace before using outside local setup.
 DATABASE_URL=postgresql+psycopg://socfusion:socfusion@localhost:5432/socfusion
 OTX_API_KEY=demo-otx-api-key
 MISP_URL=https://misp.example.local
@@ -7,10 +7,9 @@ RAW_STORAGE_PATH=./data/raw-intel
 ADMIN_AUTH_SECRET=change-me-demo-secret
 APP_ENV=development
 DEBUG=true
+
+# Gemini-only LLM configuration
 LLM_PROVIDER=gemini
-LLM_API_KEY=
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=
 LLM_TEMPERATURE=0.2
 LLM_MAX_OUTPUT_TOKENS=512
 LLM_VERBOSE=false
