@@ -1,1 +1,0 @@
-﻿"""AlienVault OTX connector package."""
