@@ -23,31 +23,14 @@ def _handoff_to_local_venv() -> None:
 
 try:
     import uvicorn
-    from fastapi import FastAPI
 except ImportError as exc:
     if __name__ == "__main__":
         _handoff_to_local_venv()
 
-    missing = getattr(exc, "name", "fastapi/uvicorn")
+    missing = getattr(exc, "name", "uvicorn")
     raise SystemExit(
         f"Missing dependency: {missing}. Install requirements or run inside the project venv."
     ) from exc
-
-from mitre.router import router as mitre_router
-
-
-app = FastAPI(title="SoC Fusion Backend")
-app.include_router(mitre_router)
-
-
-# @app.get("/")
-# async def read_root() -> dict[str, str]:
-#     return {"message": "SoC Fusion backend is running"}
-
-
-@app.get("/health")
-async def health_check() -> dict[str, str]:
-    return {"status": "ok"}
 
 
 def main() -> None:
@@ -55,7 +38,7 @@ def main() -> None:
     port = int(os.getenv("PORT", "8000"))
     reload_enabled = os.getenv("RELOAD", "false").lower() in {"1", "true", "yes"}
 
-    uvicorn.run("app:app", host=host, port=port, reload=reload_enabled)
+    uvicorn.run("api:app", host=host, port=port, reload=reload_enabled)
 
 
 if __name__ == "__main__":
