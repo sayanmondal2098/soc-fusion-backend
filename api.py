@@ -1,7 +1,7 @@
 ﻿from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from llm import (
+from utils.llm import (
     LLMConfigurationError,
     LLMRequestError,
     generate_text,
@@ -88,9 +88,9 @@ def llm_generate(payload: LLMGenerateRequest) -> dict[str, str]:
 
         return generate_text(payload.prompt, system_prompt=payload.system_prompt)
     except LLMConfigurationError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
     except LLMRequestError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(status_code=502, detail=exc.to_dict()) from exc
 
 
 @app.get("/llm/settings")
