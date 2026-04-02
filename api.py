@@ -1,13 +1,17 @@
-﻿from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Query
 
-from utils.llm import (
-    LLMConfigurationError,
-    LLMRequestError,
-    generate_text,
-    get_llm_settings,
+from base_request import (
+    BaseRequest,
+    HealthCheckResponse,
+    LLMGenerateRequest,
+    LLMGenerateResponse,
+    MitreObjectRequest,
+    MitreObjectResponse,
+    MitreRefreshResponse,
+    MitreSearchRequest,
+    MitreSearchResponse,
+    MitreStatusResponse,
 )
-
 from mitre.service import (
     DatabaseNotReadyError,
     get_attack_object,
@@ -15,78 +19,65 @@ from mitre.service import (
     search_attack_content,
     sync_attack_content,
 )
+from utils.llm import LLMConfigurationError, LLMRequestError, generate_text
 
 
 app = FastAPI(title="SoC Fusion Backend")
 
 
-class LLMGenerateRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=12000)
+@app.get("/health", response_model=HealthCheckResponse)
+async def health_check(_request: BaseRequest = Query(...)) -> HealthCheckResponse:
+    return HealthCheckResponse(status="ok")
 
 
-@app.get("/health")
-async def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/mitre/status", response_model=MitreStatusResponse)
+def mitre_status(_request: BaseRequest = Query(...)) -> MitreStatusResponse:
+    return MitreStatusResponse.model_validate(get_attack_status())
 
 
-@app.get("/mitre/status")
-def mitre_status() -> dict:
-    return get_attack_status()
-
-
-@app.post("/mitre/refresh")
-def mitre_refresh() -> dict:
+@app.post("/mitre/refresh", response_model=MitreRefreshResponse)
+def mitre_refresh(_request: BaseRequest = Query(...)) -> MitreRefreshResponse:
     try:
-        return sync_attack_content()
+        return MitreRefreshResponse.model_validate(sync_attack_content())
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@app.get("/mitre/search")
-def mitre_search(
-    q: str = Query(..., min_length=1, description="Search text or ATT&CK ID"),
-    object_type: str | None = Query(default=None),
-    domain: str | None = Query(default=None),
-    limit: int = Query(default=20, ge=1, le=100),
-) -> dict:
+@app.get("/mitre/search", response_model=MitreSearchResponse)
+def mitre_search(request: MitreSearchRequest = Query(...)) -> MitreSearchResponse:
     try:
-        return search_attack_content(
-            query=q,
-            object_type=object_type,
-            domain=domain,
-            limit=limit,
+        return MitreSearchResponse.model_validate(
+            search_attack_content(
+                query=request.q,
+                object_type=request.object_type,
+                domain=request.domain,
+                limit=request.limit,
+            )
         )
     except DatabaseNotReadyError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.get("/mitre/object")
-def mitre_object(
-    stix_id: str = Query(..., min_length=1, description="STIX ID returned by search"),
-) -> dict:
+@app.get("/mitre/object", response_model=MitreObjectResponse)
+def mitre_object(request: MitreObjectRequest = Query(...)) -> MitreObjectResponse:
     try:
-        document = get_attack_object(stix_id)
+        document = get_attack_object(request.stix_id)
     except DatabaseNotReadyError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     if document is None:
         raise HTTPException(
-            status_code=404, detail=f"MITRE object not found: {stix_id}"
+            status_code=404, detail=f"MITRE object not found: {request.stix_id}"
         )
 
-    return document
+    return MitreObjectResponse.model_validate(document)
 
 
-@app.post("/llm/generate")
-def llm_generate(payload: LLMGenerateRequest) -> dict[str, str]:
+@app.post("/llm/generate", response_model=LLMGenerateResponse)
+def llm_generate(payload: LLMGenerateRequest) -> LLMGenerateResponse:
     try:
-        return generate_text(payload.prompt)
+        return LLMGenerateResponse.model_validate(generate_text(payload.prompt))
     except LLMConfigurationError as exc:
         raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
     except LLMRequestError as exc:
         raise HTTPException(status_code=502, detail=exc.to_dict()) from exc
-
-
-# @app.get("/llm/settings")
-# def llm_settings() -> dict:
-#     return get_llm_settings()
