@@ -87,6 +87,6 @@ def llm_generate(payload: LLMGenerateRequest) -> dict[str, str]:
         raise HTTPException(status_code=502, detail=exc.to_dict()) from exc
 
 
-@app.get("/llm/settings")
-def llm_settings() -> dict:
-    return get_llm_settings()
+# @app.get("/llm/settings")
+# def llm_settings() -> dict:
+#     return get_llm_settings()
