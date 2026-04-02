@@ -359,7 +359,9 @@ def generate_text_from_file(
     *,
     system_prompt: str | None = None,
 ) -> dict[str, str]:
-    return generate_text(load_prompt_from_file(prompt_path), system_prompt=system_prompt)
+    return generate_text(
+        load_prompt_from_file(prompt_path), system_prompt=system_prompt
+    )
 
 
 def get_llm_settings() -> dict[str, Any]:
