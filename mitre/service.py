@@ -553,7 +553,7 @@ def sync_attack_content() -> dict[str, Any]:
         "source_urls": ATTACK_BUNDLE_URLS,
         "counts": counts,
         "document_count": len(documents),
-        "raw_files": raw_files,
+        # "raw_files": raw_files,
     }
     write_documents(documents, metadata)
 
@@ -562,7 +562,7 @@ def sync_attack_content() -> dict[str, Any]:
         "synced_at": synced_at,
         "documents_indexed": len(documents),
         "counts": counts,
-        "raw_files": raw_files,
+        # "raw_files": raw_files,
     }
 
 
