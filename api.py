@@ -11,6 +11,11 @@ from base_request import (
     MitreSearchRequest,
     MitreSearchResponse,
     MitreStatusResponse,
+    VirusTotalPulseBatchItemResponse,
+    VirusTotalPulseBatchScanRequest,
+    VirusTotalPulseBatchScanResponse,
+    VirusTotalPulseScanRequest,
+    VirusTotalPulseScanResponse,
 )
 from mitre.service import (
     DatabaseNotReadyError,
@@ -20,9 +25,22 @@ from mitre.service import (
     sync_attack_content,
 )
 from utils.llm import LLMConfigurationError, LLMRequestError, generate_text
+from virustotal.service import (
+    VirusTotalConfigurationError,
+    VirusTotalRequestError,
+    scan_pulse,
+)
 
 
 app = FastAPI(title="SoC Fusion Backend")
+
+
+def _raise_virustotal_http_error(exc: VirusTotalRequestError) -> None:
+    if exc.status_code == 404:
+        raise HTTPException(status_code=404, detail=exc.to_dict()) from exc
+
+    status_code = 503 if exc.status_code == 429 else 502
+    raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
 
 
 @app.get("/health", response_model=HealthCheckResponse)
@@ -81,3 +99,73 @@ def llm_generate(payload: LLMGenerateRequest) -> LLMGenerateResponse:
         raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
     except LLMRequestError as exc:
         raise HTTPException(status_code=502, detail=exc.to_dict()) from exc
+
+
+@app.post("/virustotal/scan-pulse", response_model=VirusTotalPulseScanResponse)
+def virustotal_scan_pulse(
+    payload: VirusTotalPulseScanRequest,
+) -> VirusTotalPulseScanResponse:
+    try:
+        result = scan_pulse(
+            indicator=payload.pulse,
+            indicator_type=payload.indicator_type,
+        )
+        return VirusTotalPulseScanResponse.model_validate(result)
+    except VirusTotalConfigurationError as exc:
+        raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
+    except VirusTotalRequestError as exc:
+        _raise_virustotal_http_error(exc)
+
+
+@app.post("/virustotal/scan-pulse/batch", response_model=VirusTotalPulseBatchScanResponse)
+def virustotal_scan_pulse_batch(
+    payload: VirusTotalPulseBatchScanRequest,
+) -> VirusTotalPulseBatchScanResponse:
+    results: list[VirusTotalPulseBatchItemResponse] = []
+
+    for item in payload.items:
+        try:
+            result = scan_pulse(indicator=item.pulse, indicator_type=item.indicator_type)
+            results.append(
+                VirusTotalPulseBatchItemResponse(
+                    pulse=item.pulse,
+                    indicator_type=item.indicator_type,
+                    success=True,
+                    result=VirusTotalPulseScanResponse.model_validate(result),
+                )
+            )
+        except VirusTotalConfigurationError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                raise HTTPException(status_code=500, detail=error_detail) from exc
+
+            results.append(
+                VirusTotalPulseBatchItemResponse(
+                    pulse=item.pulse,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+        except VirusTotalRequestError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                _raise_virustotal_http_error(exc)
+
+            results.append(
+                VirusTotalPulseBatchItemResponse(
+                    pulse=item.pulse,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+
+    success_count = sum(1 for item in results if item.success)
+    failure_count = len(results) - success_count
+    return VirusTotalPulseBatchScanResponse(
+        total=len(results),
+        success_count=success_count,
+        failure_count=failure_count,
+        results=results,
+    )

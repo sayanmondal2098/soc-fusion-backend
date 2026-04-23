@@ -71,6 +71,38 @@ class LLMGenerateRequest(BaseRequest):
         return value
 
 
+class VirusTotalPulseScanRequest(BaseRequest):
+    pulse: str = Field(..., description="Indicator to scan (hash, domain, IP, or URL)")
+    indicator_type: str = Field(
+        default="auto",
+        description="One of: auto, file, domain, ip, url",
+    )
+
+    @field_validator("pulse")
+    @classmethod
+    def validate_pulse(cls, value: str) -> str:
+        if value == "":
+            raise ValueError("pulse cannot be empty")
+        return value
+
+    @field_validator("indicator_type")
+    @classmethod
+    def validate_indicator_type(cls, value: str) -> str:
+        allowed = {"auto", "file", "domain", "ip", "url"}
+        normalized = value.lower()
+        if normalized not in allowed:
+            raise ValueError("indicator_type must be one of: auto, file, domain, ip, url")
+        return normalized
+
+
+class VirusTotalPulseBatchScanRequest(BaseRequest):
+    items: list[VirusTotalPulseScanRequest] = Field(..., min_length=1, max_length=100)
+    continue_on_error: bool = Field(
+        default=True,
+        description="Continue scanning remaining items if one item fails",
+    )
+
+
 class HealthCheckResponse(BaseResponse):
     status: str
 
@@ -125,3 +157,32 @@ class LLMGenerateResponse(BaseResponse):
     provider: str
     model: str
     text: str
+
+
+class VirusTotalPulseScanResponse(BaseResponse):
+    provider: str
+    indicator: str
+    indicator_type: str
+    source: str
+    found: bool
+    object_id: str | None = None
+    object_type: str | None = None
+    reputation: int | None = None
+    last_analysis_stats: dict[str, int] | None = None
+    last_analysis_date: str | None = None
+    link: str
+
+
+class VirusTotalPulseBatchItemResponse(BaseResponse):
+    pulse: str
+    indicator_type: str
+    success: bool
+    result: VirusTotalPulseScanResponse | None = None
+    error: dict[str, object] | None = None
+
+
+class VirusTotalPulseBatchScanResponse(BaseResponse):
+    total: int
+    success_count: int
+    failure_count: int
+    results: list[VirusTotalPulseBatchItemResponse]

@@ -14,6 +14,7 @@ Backend repository scaffold for the SoC Fusion platform.
 - Settings load from a repository-root `.env` file by default, or from `ENV_FILE` when it is set.
 - Process environment variables override `.env` values, which lets secret managers or container runtime env injection take precedence.
 - Critical startup settings are `DATABASE_URL`, `OTX_API_KEY`, `MISP_URL`, `MISP_API_KEY`, `ADMIN_AUTH_SECRET`, and either `RAW_STORAGE_PATH` or `RAW_STORAGE_BUCKET`.
+- Add `VIRUSTOTAL_API_KEY` (or `VT_API_KEY`) to enable VirusTotal indicator scans.
 - LLM support is currently Gemini-only.
 - Gemini settings are `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TEMPERATURE`, and `GEMINI_MAX_OUTPUT_TOKENS`.
 - Generic aliases still accepted for shared tuning are `LLM_PROVIDER`, `LLM_TEMPERATURE`, and `LLM_MAX_OUTPUT_TOKENS`.
@@ -41,6 +42,17 @@ Backend repository scaffold for the SoC Fusion platform.
 - Request body: `{"prompt": "Summarize T1059 in one paragraph."}`
 - `GET /llm/settings` returns Gemini model settings and default prompt module status.
 - Only Gemini is supported by the current backend.
+
+## VirusTotal Pulse Scan
+
+- `POST /virustotal/scan-pulse` scans a pulse indicator against VirusTotal v3.
+- `POST /virustotal/scan-pulse/batch` scans multiple pulse indicators in one request.
+- Request body:
+	- `{"pulse": "8.8.8.8", "indicator_type": "auto"}`
+	- `indicator_type` supports `auto`, `file`, `domain`, `ip`, and `url`.
+- Batch request body:
+	- `{"continue_on_error": true, "items": [{"pulse": "8.8.8.8", "indicator_type": "auto"}]}`
+- Response includes normalized verdict fields such as `last_analysis_stats`, `reputation`, and a `link` to VirusTotal UI.
 
 ## Status
 
