@@ -14,7 +14,10 @@ from typing import Any
 
 VIRUSTOTAL_API_BASE = "https://www.virustotal.com/api/v3"
 INDICATOR_TYPES = {"file", "domain", "ip", "url"}
-DOMAIN_RE = re.compile(r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+\.?$", re.IGNORECASE)
+DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+\.?$",
+    re.IGNORECASE,
+)
 HASH_RE = re.compile(r"^[A-Fa-f0-9]{32}$|^[A-Fa-f0-9]{40}$|^[A-Fa-f0-9]{64}$")
 
 
@@ -189,7 +192,9 @@ def _json_get(path: str, *, api_key: str) -> dict[str, Any]:
 def scan_pulse(indicator: str, indicator_type: str = "auto") -> dict[str, Any]:
     resolved_indicator = indicator.strip()
     if not resolved_indicator:
-        raise VirusTotalConfigurationError("indicator cannot be empty", field="indicator")
+        raise VirusTotalConfigurationError(
+            "indicator cannot be empty", field="indicator"
+        )
 
     normalized_type = indicator_type.strip().lower()
     if normalized_type == "auto":
@@ -219,5 +224,6 @@ def scan_pulse(indicator: str, indicator_type: str = "auto") -> dict[str, Any]:
         "reputation": attributes.get("reputation"),
         "last_analysis_stats": attributes.get("last_analysis_stats"),
         "last_analysis_date": _to_iso(attributes.get("last_analysis_date")),
-        "link": attributes.get("permalink") or f"https://www.virustotal.com/gui/search/{urllib.parse.quote(resolved_indicator, safe='')}",
+        "link": attributes.get("permalink")
+        or f"https://www.virustotal.com/gui/search/{urllib.parse.quote(resolved_indicator, safe='')}",
     }

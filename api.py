@@ -1,10 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
 
-from alienvault.service import (
-    OTXConfigurationError,
-    OTXRequestError,
-    scan_indicator,
-)
 from base_request import (
     BaseRequest,
     HealthCheckResponse,
@@ -16,16 +11,6 @@ from base_request import (
     MitreSearchRequest,
     MitreSearchResponse,
     MitreStatusResponse,
-    OTXBatchItemResponse,
-    OTXBatchScanRequest,
-    OTXBatchScanResponse,
-    OTXScanRequest,
-    OTXScanResponse,
-    OTXIndicatorBatchItemResponse,
-    OTXIndicatorBatchLookupRequest,
-    OTXIndicatorBatchLookupResponse,
-    OTXIndicatorLookupRequest,
-    OTXIndicatorLookupResponse,
     VirusTotalPulseBatchItemResponse,
     VirusTotalPulseBatchScanRequest,
     VirusTotalPulseBatchScanResponse,
@@ -39,7 +24,7 @@ from mitre.service import (
     search_attack_content,
     sync_attack_content,
 )
-from otx.service import OTXConfigurationError, OTXRequestError, lookup_indicator
+from otx.service import OTXRequestError
 from utils.llm import LLMConfigurationError, LLMRequestError, generate_text
 from virustotal.service import (
     VirusTotalConfigurationError,
@@ -141,7 +126,9 @@ def virustotal_scan_pulse(
         _raise_virustotal_http_error(exc)
 
 
-@app.post("/virustotal/scan-pulse/batch", response_model=VirusTotalPulseBatchScanResponse)
+@app.post(
+    "/virustotal/scan-pulse/batch", response_model=VirusTotalPulseBatchScanResponse
+)
 def virustotal_scan_pulse_batch(
     payload: VirusTotalPulseBatchScanRequest,
 ) -> VirusTotalPulseBatchScanResponse:
@@ -149,7 +136,9 @@ def virustotal_scan_pulse_batch(
 
     for item in payload.items:
         try:
-            result = scan_pulse(indicator=item.pulse, indicator_type=item.indicator_type)
+            result = scan_pulse(
+                indicator=item.pulse, indicator_type=item.indicator_type
+            )
             results.append(
                 VirusTotalPulseBatchItemResponse(
                     pulse=item.pulse,

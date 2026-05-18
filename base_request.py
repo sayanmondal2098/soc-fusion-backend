@@ -91,7 +91,9 @@ class VirusTotalPulseScanRequest(BaseRequest):
         allowed = {"auto", "file", "domain", "ip", "url"}
         normalized = value.lower()
         if normalized not in allowed:
-            raise ValueError("indicator_type must be one of: auto, file, domain, ip, url")
+            raise ValueError(
+                "indicator_type must be one of: auto, file, domain, ip, url"
+            )
         return normalized
 
 
@@ -104,7 +106,9 @@ class VirusTotalPulseBatchScanRequest(BaseRequest):
 
 
 class OTXIndicatorLookupRequest(BaseRequest):
-    indicator: str = Field(..., description="Indicator to look up (hash, domain, IP, or URL)")
+    indicator: str = Field(
+        ..., description="Indicator to look up (hash, domain, IP, or URL)"
+    )
     indicator_type: str = Field(
         default="auto",
         description="One of: auto, file, domain, ip, url",
@@ -123,7 +127,9 @@ class OTXIndicatorLookupRequest(BaseRequest):
         allowed = {"auto", "file", "domain", "ip", "url"}
         normalized = value.lower()
         if normalized not in allowed:
-            raise ValueError("indicator_type must be one of: auto, file, domain, ip, url")
+            raise ValueError(
+                "indicator_type must be one of: auto, file, domain, ip, url"
+            )
         return normalized
 
 

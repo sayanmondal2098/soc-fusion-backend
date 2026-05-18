@@ -288,9 +288,8 @@ def lookup_indicator(indicator: str, indicator_type: str = "auto") -> dict[str, 
         "otx_indicator_type": otx_type,
         "source": object_path,
         "found": pulse_count > 0,
-        "object_id": payload.get("id") or _stable_object_id(
-            resolved_indicator, normalized_type
-        ),
+        "object_id": payload.get("id")
+        or _stable_object_id(resolved_indicator, normalized_type),
         "pulse_count": pulse_count,
         "reputation": payload.get("reputation"),
         "sections": sections,
