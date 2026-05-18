@@ -103,6 +103,42 @@ class VirusTotalPulseBatchScanRequest(BaseRequest):
     )
 
 
+class OTXScanRequest(BaseRequest):
+    indicator: str = Field(
+        ..., description="Indicator to scan (hash, IP, domain, hostname, or URL)"
+    )
+    indicator_type: str = Field(
+        default="auto",
+        description="One of: auto, ip, domain, hostname, url, file",
+    )
+
+    @field_validator("indicator")
+    @classmethod
+    def validate_indicator(cls, value: str) -> str:
+        if value == "":
+            raise ValueError("indicator cannot be empty")
+        return value
+
+    @field_validator("indicator_type")
+    @classmethod
+    def validate_otx_indicator_type(cls, value: str) -> str:
+        allowed = {"auto", "ip", "domain", "hostname", "url", "file"}
+        normalized = value.lower()
+        if normalized not in allowed:
+            raise ValueError(
+                "indicator_type must be one of: auto, ip, domain, hostname, url, file"
+            )
+        return normalized
+
+
+class OTXBatchScanRequest(BaseRequest):
+    items: list[OTXScanRequest] = Field(..., min_length=1, max_length=100)
+    continue_on_error: bool = Field(
+        default=True,
+        description="Continue scanning remaining items if one item fails",
+    )
+
+
 class HealthCheckResponse(BaseResponse):
     status: str
 
@@ -186,3 +222,34 @@ class VirusTotalPulseBatchScanResponse(BaseResponse):
     success_count: int
     failure_count: int
     results: list[VirusTotalPulseBatchItemResponse]
+
+
+class OTXScanResponse(BaseResponse):
+    provider: str
+    indicator: str
+    indicator_type: str
+    source: str
+    found: bool
+    pulse_count: int
+    reputation: int | None = None
+    malware_families: list[str]
+    adversary: str | None = None
+    targeted_countries: list[str]
+    industries: list[str]
+    attack_ids: list[str]
+    link: str
+
+
+class OTXBatchItemResponse(BaseResponse):
+    indicator: str
+    indicator_type: str
+    success: bool
+    result: OTXScanResponse | None = None
+    error: dict[str, object] | None = None
+
+
+class OTXBatchScanResponse(BaseResponse):
+    total: int
+    success_count: int
+    failure_count: int
+    results: list[OTXBatchItemResponse]

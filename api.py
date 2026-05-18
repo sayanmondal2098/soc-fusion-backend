@@ -1,5 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
 
+from alienvault.service import (
+    OTXConfigurationError,
+    OTXRequestError,
+    scan_indicator,
+)
 from base_request import (
     BaseRequest,
     HealthCheckResponse,
@@ -11,6 +16,11 @@ from base_request import (
     MitreSearchRequest,
     MitreSearchResponse,
     MitreStatusResponse,
+    OTXBatchItemResponse,
+    OTXBatchScanRequest,
+    OTXBatchScanResponse,
+    OTXScanRequest,
+    OTXScanResponse,
     VirusTotalPulseBatchItemResponse,
     VirusTotalPulseBatchScanRequest,
     VirusTotalPulseBatchScanResponse,
@@ -36,6 +46,14 @@ app = FastAPI(title="SoC Fusion Backend")
 
 
 def _raise_virustotal_http_error(exc: VirusTotalRequestError) -> None:
+    if exc.status_code == 404:
+        raise HTTPException(status_code=404, detail=exc.to_dict()) from exc
+
+    status_code = 503 if exc.status_code == 429 else 502
+    raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+
+
+def _raise_otx_http_error(exc: OTXRequestError) -> None:
     if exc.status_code == 404:
         raise HTTPException(status_code=404, detail=exc.to_dict()) from exc
 
@@ -164,6 +182,73 @@ def virustotal_scan_pulse_batch(
     success_count = sum(1 for item in results if item.success)
     failure_count = len(results) - success_count
     return VirusTotalPulseBatchScanResponse(
+        total=len(results),
+        success_count=success_count,
+        failure_count=failure_count,
+        results=results,
+    )
+
+
+@app.post("/otx/scan-indicator", response_model=OTXScanResponse)
+def otx_scan_indicator(payload: OTXScanRequest) -> OTXScanResponse:
+    try:
+        result = scan_indicator(
+            indicator=payload.indicator,
+            indicator_type=payload.indicator_type,
+        )
+        return OTXScanResponse.model_validate(result)
+    except OTXConfigurationError as exc:
+        raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
+    except OTXRequestError as exc:
+        _raise_otx_http_error(exc)
+
+
+@app.post("/otx/scan-indicator/batch", response_model=OTXBatchScanResponse)
+def otx_scan_indicator_batch(payload: OTXBatchScanRequest) -> OTXBatchScanResponse:
+    results: list[OTXBatchItemResponse] = []
+
+    for item in payload.items:
+        try:
+            result = scan_indicator(
+                indicator=item.indicator,
+                indicator_type=item.indicator_type,
+            )
+            results.append(
+                OTXBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=True,
+                    result=OTXScanResponse.model_validate(result),
+                )
+            )
+        except OTXConfigurationError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                raise HTTPException(status_code=500, detail=error_detail) from exc
+            results.append(
+                OTXBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+        except OTXRequestError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                _raise_otx_http_error(exc)
+            results.append(
+                OTXBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+
+    success_count = sum(1 for item in results if item.success)
+    failure_count = len(results) - success_count
+    return OTXBatchScanResponse(
         total=len(results),
         success_count=success_count,
         failure_count=failure_count,
