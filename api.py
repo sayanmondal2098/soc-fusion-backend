@@ -11,6 +11,11 @@ from base_request import (
     MitreSearchRequest,
     MitreSearchResponse,
     MitreStatusResponse,
+    OTXIndicatorBatchItemResponse,
+    OTXIndicatorBatchLookupRequest,
+    OTXIndicatorBatchLookupResponse,
+    OTXIndicatorLookupRequest,
+    OTXIndicatorLookupResponse,
     VirusTotalPulseBatchItemResponse,
     VirusTotalPulseBatchScanRequest,
     VirusTotalPulseBatchScanResponse,
@@ -24,6 +29,7 @@ from mitre.service import (
     search_attack_content,
     sync_attack_content,
 )
+from otx.service import OTXConfigurationError, OTXRequestError, lookup_indicator
 from utils.llm import LLMConfigurationError, LLMRequestError, generate_text
 from virustotal.service import (
     VirusTotalConfigurationError,
@@ -36,6 +42,14 @@ app = FastAPI(title="SoC Fusion Backend")
 
 
 def _raise_virustotal_http_error(exc: VirusTotalRequestError) -> None:
+    if exc.status_code == 404:
+        raise HTTPException(status_code=404, detail=exc.to_dict()) from exc
+
+    status_code = 503 if exc.status_code == 429 else 502
+    raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+
+
+def _raise_otx_http_error(exc: OTXRequestError) -> None:
     if exc.status_code == 404:
         raise HTTPException(status_code=404, detail=exc.to_dict()) from exc
 
@@ -164,6 +178,79 @@ def virustotal_scan_pulse_batch(
     success_count = sum(1 for item in results if item.success)
     failure_count = len(results) - success_count
     return VirusTotalPulseBatchScanResponse(
+        total=len(results),
+        success_count=success_count,
+        failure_count=failure_count,
+        results=results,
+    )
+
+
+@app.post("/otx/lookup", response_model=OTXIndicatorLookupResponse)
+def otx_lookup_indicator(
+    payload: OTXIndicatorLookupRequest,
+) -> OTXIndicatorLookupResponse:
+    try:
+        result = lookup_indicator(
+            indicator=payload.indicator,
+            indicator_type=payload.indicator_type,
+        )
+        return OTXIndicatorLookupResponse.model_validate(result)
+    except OTXConfigurationError as exc:
+        raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
+    except OTXRequestError as exc:
+        _raise_otx_http_error(exc)
+
+
+@app.post("/otx/lookup/batch", response_model=OTXIndicatorBatchLookupResponse)
+def otx_lookup_indicator_batch(
+    payload: OTXIndicatorBatchLookupRequest,
+) -> OTXIndicatorBatchLookupResponse:
+    results: list[OTXIndicatorBatchItemResponse] = []
+
+    for item in payload.items:
+        try:
+            result = lookup_indicator(
+                indicator=item.indicator,
+                indicator_type=item.indicator_type,
+            )
+            results.append(
+                OTXIndicatorBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=True,
+                    result=OTXIndicatorLookupResponse.model_validate(result),
+                )
+            )
+        except OTXConfigurationError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                raise HTTPException(status_code=500, detail=error_detail) from exc
+
+            results.append(
+                OTXIndicatorBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+        except OTXRequestError as exc:
+            error_detail = exc.to_dict()
+            if not payload.continue_on_error:
+                _raise_otx_http_error(exc)
+
+            results.append(
+                OTXIndicatorBatchItemResponse(
+                    indicator=item.indicator,
+                    indicator_type=item.indicator_type,
+                    success=False,
+                    error=error_detail,
+                )
+            )
+
+    success_count = sum(1 for item in results if item.success)
+    failure_count = len(results) - success_count
+    return OTXIndicatorBatchLookupResponse(
         total=len(results),
         success_count=success_count,
         failure_count=failure_count,

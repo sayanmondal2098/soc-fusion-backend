@@ -15,6 +15,7 @@ Backend repository scaffold for the SoC Fusion platform.
 - Process environment variables override `.env` values, which lets secret managers or container runtime env injection take precedence.
 - Critical startup settings are `DATABASE_URL`, `OTX_API_KEY`, `MISP_URL`, `MISP_API_KEY`, `ADMIN_AUTH_SECRET`, and either `RAW_STORAGE_PATH` or `RAW_STORAGE_BUCKET`.
 - Add `VIRUSTOTAL_API_KEY` (or `VT_API_KEY`) to enable VirusTotal indicator scans.
+- Add `OTX_API_KEY` to enable AlienVault OTX indicator lookups.
 - LLM support is currently Gemini-only.
 - Gemini settings are `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TEMPERATURE`, and `GEMINI_MAX_OUTPUT_TOKENS`.
 - Generic aliases still accepted for shared tuning are `LLM_PROVIDER`, `LLM_TEMPERATURE`, and `LLM_MAX_OUTPUT_TOKENS`.
@@ -54,7 +55,17 @@ Backend repository scaffold for the SoC Fusion platform.
 	- `{"continue_on_error": true, "items": [{"pulse": "8.8.8.8", "indicator_type": "auto"}]}`
 - Response includes normalized verdict fields such as `last_analysis_stats`, `reputation`, and a `link` to VirusTotal UI.
 
+## AlienVault OTX Indicator Lookup
+
+- `POST /otx/lookup` enriches a single indicator with AlienVault OTX pulse context.
+- `POST /otx/lookup/batch` enriches multiple indicators in one request.
+- Request body:
+	- `{"indicator": "8.8.8.8", "indicator_type": "auto"}`
+	- `indicator_type` supports `auto`, `file`, `domain`, `ip`, and `url`.
+- Batch request body:
+	- `{"continue_on_error": true, "items": [{"indicator": "8.8.8.8", "indicator_type": "auto"}]}`
+- Response includes normalized fields such as `found`, `pulse_count`, `reputation`, related `pulses`, full section payloads in `details`, per-section failures in `detail_errors`, and a link to the OTX indicator page.
+
 ## Status
 
 This repository currently contains only the requested backend structure and starter files.
-
