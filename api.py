@@ -182,3 +182,96 @@ def virustotal_scan_pulse_batch(
         failure_count=failure_count,
         results=results,
     )
+
+
+# --- AbuseIPDB ---
+
+from abuseipdb.service import AbuseIPDBService
+from abuseipdb.exceptions import (
+    AbuseIPDBError,
+    AbuseIPDBAuthError,
+    AbuseIPDBRateLimitError,
+    AbuseIPDBValidationError,
+    AbuseIPDBPlanLimitError,
+    AbuseIPDBProviderError
+)
+from abuseipdb.schemas import AbuseIPDBBatchRequest, AbuseIPDBReportRequest
+
+def _raise_abuseipdb_http_error(exc: Exception) -> None:
+    if isinstance(exc, AbuseIPDBValidationError):
+        raise HTTPException(status_code=422, detail=str(exc))
+    elif isinstance(exc, AbuseIPDBAuthError):
+        raise HTTPException(status_code=502, detail={"code": "provider_auth_failed", "message": str(exc)})
+    elif isinstance(exc, AbuseIPDBRateLimitError):
+        raise HTTPException(status_code=429, detail={"code": "abuseipdb_rate_limited", "message": str(exc)})
+    elif isinstance(exc, AbuseIPDBPlanLimitError):
+        raise HTTPException(status_code=402, detail={"code": "provider_plan_limit", "message": str(exc)})
+    elif isinstance(exc, AbuseIPDBProviderError):
+        raise HTTPException(status_code=503, detail={"code": "provider_unavailable", "message": str(exc)})
+    elif isinstance(exc, AbuseIPDBError):
+        raise HTTPException(status_code=500, detail={"code": "abuseipdb_error", "message": str(exc)})
+    else:
+        raise HTTPException(status_code=500, detail={"code": "internal_error", "message": "An unexpected error occurred."})
+
+
+@app.get("/abuseipdb")
+def abuseipdb_get(
+    operation: str = Query(..., description="check, reports, blacklist, check-block"),
+    ip: str = Query(None),
+    network: str = Query(None),
+    max_age_days: int = Query(90),
+    verbose: bool = Query(False),
+    page: int = Query(1),
+    per_page: int = Query(100),
+    confidence_minimum: int = Query(75),
+    limit: int = Query(10000),
+    ip_version: int = Query(None)
+):
+    service = AbuseIPDBService()
+    try:
+        if operation == "check":
+            if not ip: raise HTTPException(400, "ip is required for check")
+            return service.check_ip(ip, max_age_days, verbose)
+        elif operation == "reports":
+            if not ip: raise HTTPException(400, "ip is required for reports")
+            return service.get_reports(ip, max_age_days, page, per_page)
+        elif operation == "blacklist":
+            return service.get_blacklist(confidence_minimum, limit, ip_version)
+        elif operation == "check-block":
+            if not network: raise HTTPException(400, "network is required for check-block")
+            return service.check_block(network, max_age_days)
+        else:
+            raise HTTPException(400, "Invalid operation")
+    except Exception as e:
+        _raise_abuseipdb_http_error(e)
+
+
+@app.post("/abuseipdb")
+def abuseipdb_post(
+    operation: str = Query(..., description="batch, report"),
+    payload: dict = dict()
+):
+    service = AbuseIPDBService()
+    try:
+        if operation == "batch":
+            req = AbuseIPDBBatchRequest(**payload)
+            results = []
+            for ip_addr in set(req.ips):
+                try:
+                    res = service.check_ip(ip_addr, req.max_age_days, req.verbose)
+                    results.append({"ip": ip_addr, "status": "success", "data": res.data})
+                except AbuseIPDBRateLimitError as e:
+                    results.append({"ip": ip_addr, "status": "rate_limited", "error": str(e)})
+                    break
+                except Exception as e:
+                    results.append({"ip": ip_addr, "status": "error", "error": str(e)})
+            return {"results": results}
+            
+        elif operation == "report":
+            req = AbuseIPDBReportRequest(**payload)
+            return service.report_ip_safely(req.ip, req.categories, req.comment, req.timestamp)
+        else:
+            raise HTTPException(400, "Invalid operation")
+    except Exception as e:
+        _raise_abuseipdb_http_error(e)
+

@@ -1,0 +1,6 @@
+import os
+
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
+ABUSEIPDB_BASE_URL = os.getenv("ABUSEIPDB_BASE_URL", "https://api.abuseipdb.com/api/v2")
+ABUSEIPDB_ENABLE_EXTERNAL_REPORTING = os.getenv("ABUSEIPDB_ENABLE_EXTERNAL_REPORTING", "false").lower() == "true"
+ABUSEIPDB_TIMEOUT_SECONDS = int(os.getenv("ABUSEIPDB_TIMEOUT_SECONDS", "20"))

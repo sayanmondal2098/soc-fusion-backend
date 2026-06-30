@@ -20,3 +20,4 @@ GEMINI_MAX_OUTPUT_TOKENS=512
 
 # VirusTotal integration
 VIRUSTOTAL_API_KEY=replace-with-virustotal-api-key
+ABUSEIPDB_API_KEY = replace-with-abuseipdb-api-key
