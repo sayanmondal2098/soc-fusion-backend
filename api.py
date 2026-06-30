@@ -275,3 +275,114 @@ def abuseipdb_post(
     except Exception as e:
         _raise_abuseipdb_http_error(e)
 
+
+# --- URLhaus ---
+
+from urlhaus.client import URLhausClient
+from urlhaus.schemas import URLhausResponse
+from urlhaus.exceptions import (
+    URLhausError,
+    URLhausAuthError,
+    URLhausRateLimitError,
+    URLhausValidationError,
+    URLhausProviderError,
+    URLhausSubmissionDisabledError,
+)
+
+def _raise_urlhaus_http_error(exc: Exception) -> None:
+    if isinstance(exc, URLhausValidationError):
+        raise HTTPException(status_code=422, detail={"code": "validation_error", "message": str(exc)})
+    elif isinstance(exc, URLhausAuthError):
+        raise HTTPException(status_code=502, detail={"code": "provider_auth_failed", "message": str(exc)})
+    elif isinstance(exc, URLhausRateLimitError):
+        raise HTTPException(status_code=429, detail={"code": "urlhaus_rate_limited", "message": str(exc)})
+    elif isinstance(exc, URLhausSubmissionDisabledError):
+        raise HTTPException(status_code=403, detail={"code": "submission_disabled", "message": str(exc)})
+    elif isinstance(exc, URLhausProviderError):
+        raise HTTPException(status_code=503, detail={"code": "provider_unavailable", "message": str(exc)})
+    elif isinstance(exc, URLhausError):
+        raise HTTPException(status_code=500, detail={"code": "urlhaus_error", "message": str(exc)})
+    else:
+        raise HTTPException(status_code=500, detail={"code": "internal_error", "message": "An unexpected error occurred."})
+
+
+@app.get("/urlhaus", response_model=URLhausResponse)
+def urlhaus_get(
+    operation: str = Query(..., description="recent_urls, recent_payloads"),
+    limit: int = Query(100)
+):
+    client = URLhausClient()
+    try:
+        if operation == "recent_urls":
+            res = client.get_recent_urls(limit)
+            return URLhausResponse(
+                success=res.get("query_status") == "ok",
+                endpoint="urls/recent",
+                query_status=res.get("query_status", "unknown"),
+                data=res
+            )
+        elif operation == "recent_payloads":
+            res = client.get_recent_payloads(limit)
+            return URLhausResponse(
+                success=res.get("query_status") == "ok",
+                endpoint="payloads/recent",
+                query_status=res.get("query_status", "unknown"),
+                data=res
+            )
+        else:
+            raise HTTPException(400, detail={"code": "invalid_operation", "message": "Invalid operation"})
+    except Exception as e:
+        _raise_urlhaus_http_error(e)
+
+
+from urlhaus.schemas import URLhausResponse, URLhausQueryRequest
+
+@app.post("/urlhaus", response_model=URLhausResponse)
+def urlhaus_post(
+    request: URLhausQueryRequest
+):
+    client = URLhausClient()
+    try:
+        res = None
+        op = request.operation
+
+        if not op:
+            if request.url: op = "url"
+            elif request.urlid: op = "urlid"
+            elif request.host: op = "host"
+            elif request.hash: op = "payload"
+            elif request.tag: op = "tag"
+            elif request.signature: op = "signature"
+            elif request.urls: op = "submit"
+            else:
+                raise HTTPException(400, detail={"code": "missing_operation", "message": "Could not infer operation from payload."})
+
+        if op == "url":
+            res = client.query_url(request.url or "")
+        elif op == "urlid":
+            res = client.query_url_id(request.urlid or "")
+        elif op == "host":
+            res = client.query_host(request.host or "")
+        elif op == "payload":
+            res = client.query_payload(request.hash or "")
+        elif op == "tag":
+            res = client.query_tag(request.tag or "")
+        elif op == "signature":
+            res = client.query_signature(request.signature or "")
+        elif op == "submit":
+            res = client.submit_urls(request.urls or [])
+        else:
+            raise HTTPException(400, detail={"code": "invalid_operation", "message": "Invalid operation"})
+
+        qs = res.get("query_status", "unknown") if isinstance(res, dict) else "unknown"
+        success = qs in ("ok", "submitted")
+        
+        return URLhausResponse(
+            success=success,
+            endpoint=op,
+            query_status=qs,
+            data=res
+        )
+    except Exception as e:
+        _raise_urlhaus_http_error(e)
+
