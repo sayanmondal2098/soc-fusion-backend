@@ -171,3 +171,6 @@ Thumbs.db
 
 # Project Specific
 *.sqlite3
+
+
+*.pyc
