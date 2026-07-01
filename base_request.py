@@ -30,7 +30,7 @@ class MitreSearchRequest(BaseRequest):
         default=None, description="Filter by MITRE object type"
     )
     domain: str | None = Field(default=None, description="Filter by ATT&CK domain")
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=1000, ge=1, le=100000)
 
     @field_validator("q")
     @classmethod
