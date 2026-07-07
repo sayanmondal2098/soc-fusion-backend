@@ -1,0 +1,1294 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "SoC Fusion Backend",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health Check",
+                "operationId": "health_check_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HealthCheckResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mitre/status": {
+            "get": {
+                "summary": "Mitre Status",
+                "operationId": "mitre_status_mitre_status_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MitreStatusResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mitre/refresh": {
+            "post": {
+                "summary": "Mitre Refresh",
+                "operationId": "mitre_refresh_mitre_refresh_post",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MitreRefreshResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mitre/search": {
+            "get": {
+                "summary": "Mitre Search",
+                "operationId": "mitre_search_mitre_search_get",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "Search text or ATT&CK ID",
+                            "title": "Q"
+                        },
+                        "description": "Search text or ATT&CK ID"
+                    },
+                    {
+                        "name": "object_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter by MITRE object type",
+                            "title": "Object Type"
+                        },
+                        "description": "Filter by MITRE object type"
+                    },
+                    {
+                        "name": "domain",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "description": "Filter by ATT&CK domain",
+                            "title": "Domain"
+                        },
+                        "description": "Filter by ATT&CK domain"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 100000,
+                            "minimum": 1,
+                            "default": 1000,
+                            "title": "Limit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MitreSearchResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mitre/object": {
+            "get": {
+                "summary": "Mitre Object",
+                "operationId": "mitre_object_mitre_object_get",
+                "parameters": [
+                    {
+                        "name": "stix_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "STIX ID returned by search",
+                            "title": "Stix Id"
+                        },
+                        "description": "STIX ID returned by search"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MitreObjectResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/llm/generate": {
+            "post": {
+                "summary": "Llm Generate",
+                "operationId": "llm_generate_llm_generate_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LLMGenerateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LLMGenerateResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/virustotal/scan-pulse": {
+            "post": {
+                "summary": "Virustotal Scan Pulse",
+                "operationId": "virustotal_scan_pulse_virustotal_scan_pulse_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VirusTotalPulseScanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VirusTotalPulseScanResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/virustotal/scan-pulse/batch": {
+            "post": {
+                "summary": "Virustotal Scan Pulse Batch",
+                "operationId": "virustotal_scan_pulse_batch_virustotal_scan_pulse_batch_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VirusTotalPulseBatchScanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VirusTotalPulseBatchScanResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/abuseipdb": {
+            "get": {
+                "summary": "Abuseipdb Get",
+                "operationId": "abuseipdb_get_abuseipdb_get",
+                "parameters": [
+                    {
+                        "name": "operation",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "check, reports, blacklist, check-block",
+                            "title": "Operation"
+                        },
+                        "description": "check, reports, blacklist, check-block"
+                    },
+                    {
+                        "name": "ip",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "title": "Ip"
+                        }
+                    },
+                    {
+                        "name": "network",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "title": "Network"
+                        }
+                    },
+                    {
+                        "name": "max_age_days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 90,
+                            "title": "Max Age Days"
+                        }
+                    },
+                    {
+                        "name": "verbose",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false,
+                            "title": "Verbose"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "title": "Page"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 100,
+                            "title": "Per Page"
+                        }
+                    },
+                    {
+                        "name": "confidence_minimum",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 75,
+                            "title": "Confidence Minimum"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10000,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "ip_version",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "title": "Ip Version"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Abuseipdb Post",
+                "operationId": "abuseipdb_post_abuseipdb_post",
+                "parameters": [
+                    {
+                        "name": "operation",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "batch, report",
+                            "title": "Operation"
+                        },
+                        "description": "batch, report"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": true,
+                                "default": {},
+                                "title": "Payload"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/urlhaus": {
+            "get": {
+                "summary": "Urlhaus Get",
+                "operationId": "urlhaus_get_urlhaus_get",
+                "parameters": [
+                    {
+                        "name": "operation",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "description": "recent_urls, recent_payloads",
+                            "title": "Operation"
+                        },
+                        "description": "recent_urls, recent_payloads"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 100,
+                            "title": "Limit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/URLhausResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Urlhaus Post",
+                "operationId": "urlhaus_post_urlhaus_post",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/URLhausQueryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/URLhausResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "HealthCheckResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "title": "HealthCheckResponse"
+            },
+            "LLMGenerateRequest": {
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "maxLength": 12000,
+                        "title": "Prompt"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "prompt"
+                ],
+                "title": "LLMGenerateRequest"
+            },
+            "LLMGenerateResponse": {
+                "properties": {
+                    "provider": {
+                        "type": "string",
+                        "title": "Provider"
+                    },
+                    "model": {
+                        "type": "string",
+                        "title": "Model"
+                    },
+                    "text": {
+                        "type": "string",
+                        "title": "Text"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "provider",
+                    "model",
+                    "text"
+                ],
+                "title": "LLMGenerateResponse"
+            },
+            "MitreObjectResponse": {
+                "properties": {},
+                "additionalProperties": true,
+                "type": "object",
+                "title": "MitreObjectResponse"
+            },
+            "MitreRefreshResponse": {
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    },
+                    "synced_at": {
+                        "type": "string",
+                        "title": "Synced At"
+                    },
+                    "documents_indexed": {
+                        "type": "integer",
+                        "title": "Documents Indexed"
+                    },
+                    "counts": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "type": "object",
+                        "title": "Counts"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "status",
+                    "synced_at",
+                    "documents_indexed",
+                    "counts"
+                ],
+                "title": "MitreRefreshResponse"
+            },
+            "MitreSearchResponse": {
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "title": "Query"
+                    },
+                    "object_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Object Type"
+                    },
+                    "domain": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Domain"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "title": "Count"
+                    },
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/MitreSearchResultResponse"
+                        },
+                        "type": "array",
+                        "title": "Results"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "query",
+                    "count",
+                    "results"
+                ],
+                "title": "MitreSearchResponse"
+            },
+            "MitreSearchResultResponse": {
+                "properties": {
+                    "stix_id": {
+                        "type": "string",
+                        "title": "Stix Id"
+                    },
+                    "attack_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Attack Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "object_type": {
+                        "type": "string",
+                        "title": "Object Type"
+                    },
+                    "domains": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Domains"
+                    },
+                    "url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Url"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description"
+                    },
+                    "score": {
+                        "type": "integer",
+                        "title": "Score"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "stix_id",
+                    "name",
+                    "object_type",
+                    "domains",
+                    "score"
+                ],
+                "title": "MitreSearchResultResponse"
+            },
+            "MitreStatusResponse": {
+                "properties": {
+                    "database_ready": {
+                        "type": "boolean",
+                        "title": "Database Ready"
+                    },
+                    "database_path": {
+                        "type": "string",
+                        "title": "Database Path"
+                    },
+                    "raw_cache": {
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/RawCacheEntryResponse"
+                        },
+                        "type": "object",
+                        "title": "Raw Cache"
+                    },
+                    "source_urls": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "type": "object",
+                        "title": "Source Urls"
+                    },
+                    "counts": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": {
+                                    "type": "integer"
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Counts"
+                    },
+                    "synced_at": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Synced At"
+                    },
+                    "document_count": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Document Count"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "database_ready",
+                    "database_path",
+                    "raw_cache",
+                    "source_urls"
+                ],
+                "title": "MitreStatusResponse"
+            },
+            "RawCacheEntryResponse": {
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "title": "Path"
+                    },
+                    "size_bytes": {
+                        "type": "integer",
+                        "title": "Size Bytes"
+                    },
+                    "modified_at": {
+                        "type": "string",
+                        "title": "Modified At"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "path",
+                    "size_bytes",
+                    "modified_at"
+                ],
+                "title": "RawCacheEntryResponse"
+            },
+            "URLhausQueryRequest": {
+                "properties": {
+                    "operation": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Operation"
+                    },
+                    "url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Url"
+                    },
+                    "urlid": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Urlid"
+                    },
+                    "host": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Host"
+                    },
+                    "hash": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Hash"
+                    },
+                    "tag": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Tag"
+                    },
+                    "signature": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Signature"
+                    },
+                    "urls": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "additionalProperties": true,
+                                    "type": "object"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Urls"
+                    }
+                },
+                "type": "object",
+                "title": "URLhausQueryRequest"
+            },
+            "URLhausResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "title": "Endpoint"
+                    },
+                    "query_status": {
+                        "type": "string",
+                        "title": "Query Status"
+                    },
+                    "data": {
+                        "anyOf": [
+                            {},
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Data"
+                    },
+                    "errors": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Errors"
+                    }
+                },
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                    "success",
+                    "endpoint",
+                    "query_status"
+                ],
+                "title": "URLhausResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "VirusTotalPulseBatchItemResponse": {
+                "properties": {
+                    "pulse": {
+                        "type": "string",
+                        "title": "Pulse"
+                    },
+                    "indicator_type": {
+                        "type": "string",
+                        "title": "Indicator Type"
+                    },
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "result": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/VirusTotalPulseScanResponse"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "error": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Error"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "pulse",
+                    "indicator_type",
+                    "success"
+                ],
+                "title": "VirusTotalPulseBatchItemResponse"
+            },
+            "VirusTotalPulseBatchScanRequest": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/VirusTotalPulseScanRequest"
+                        },
+                        "type": "array",
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "title": "Items"
+                    },
+                    "continue_on_error": {
+                        "type": "boolean",
+                        "title": "Continue On Error",
+                        "description": "Continue scanning remaining items if one item fails",
+                        "default": true
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "items"
+                ],
+                "title": "VirusTotalPulseBatchScanRequest"
+            },
+            "VirusTotalPulseBatchScanResponse": {
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    },
+                    "success_count": {
+                        "type": "integer",
+                        "title": "Success Count"
+                    },
+                    "failure_count": {
+                        "type": "integer",
+                        "title": "Failure Count"
+                    },
+                    "results": {
+                        "items": {
+                            "$ref": "#/components/schemas/VirusTotalPulseBatchItemResponse"
+                        },
+                        "type": "array",
+                        "title": "Results"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "total",
+                    "success_count",
+                    "failure_count",
+                    "results"
+                ],
+                "title": "VirusTotalPulseBatchScanResponse"
+            },
+            "VirusTotalPulseScanRequest": {
+                "properties": {
+                    "pulse": {
+                        "type": "string",
+                        "title": "Pulse",
+                        "description": "Indicator to scan (hash, domain, IP, or URL)"
+                    },
+                    "indicator_type": {
+                        "type": "string",
+                        "title": "Indicator Type",
+                        "description": "One of: auto, file, domain, ip, url",
+                        "default": "auto"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "pulse"
+                ],
+                "title": "VirusTotalPulseScanRequest"
+            },
+            "VirusTotalPulseScanResponse": {
+                "properties": {
+                    "provider": {
+                        "type": "string",
+                        "title": "Provider"
+                    },
+                    "indicator": {
+                        "type": "string",
+                        "title": "Indicator"
+                    },
+                    "indicator_type": {
+                        "type": "string",
+                        "title": "Indicator Type"
+                    },
+                    "source": {
+                        "type": "string",
+                        "title": "Source"
+                    },
+                    "found": {
+                        "type": "boolean",
+                        "title": "Found"
+                    },
+                    "object_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Object Id"
+                    },
+                    "object_type": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Object Type"
+                    },
+                    "reputation": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Reputation"
+                    },
+                    "last_analysis_stats": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": {
+                                    "type": "integer"
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Analysis Stats"
+                    },
+                    "last_analysis_date": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Last Analysis Date"
+                    },
+                    "link": {
+                        "type": "string",
+                        "title": "Link"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "provider",
+                    "indicator",
+                    "indicator_type",
+                    "source",
+                    "found",
+                    "link"
+                ],
+                "title": "VirusTotalPulseScanResponse"
+            }
+        }
+    }
+}

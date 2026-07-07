@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from base_request import (
     BaseRequest,
@@ -32,8 +33,15 @@ from virustotal.service import (
     scan_pulse,
 )
 
-
 app = FastAPI(title="SoC Fusion Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _raise_virustotal_http_error(exc: VirusTotalRequestError) -> None:
